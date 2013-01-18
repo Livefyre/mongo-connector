@@ -261,16 +261,23 @@ class OplogThread(threading.Thread):
         if timestamp is None:
             return None
         for namespace in dump_set:
+            if not self.running:
+                logging.error('Stop requested before dump of %s could begin.' % namespace)
+                break
+
+            logging.info('Beginning dump of %s.' % namespace)
             db, coll = namespace.split('.', 1)
             target_coll = self.main_connection[db][coll]
             cursor = util.retry_until_ok(target_coll.find)
             long_ts = util.bson_ts_to_long(timestamp)
-
+            count = 0
             try:
+
                 for doc in cursor:
                     doc[DOC_NS] = namespace
                     doc[DOC_TS] = long_ts
                     self.doc_manager.upsert(doc)
+                    count += 1
             except (pymongo.errors.AutoReconnect,
                     pymongo.errors.OperationFailure):
 
@@ -279,6 +286,7 @@ class OplogThread(threading.Thread):
                 logging.error('%s %s %s' % (err_msg, effect, self.oplog))
                 self.running = False
                 return
+            logging.info('Sucessfully dumped %s records from %s.' % (count, namespace))
 
         return timestamp
 
