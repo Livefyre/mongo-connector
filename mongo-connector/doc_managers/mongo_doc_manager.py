@@ -25,14 +25,13 @@
     """
 
 import pymongo
-import sys
-import time
 
 try:
     import simplejson as json
 except:
-    import json
+    import json as json
 
+from oplog_manager import DOC_TS, DOC_NS
 
 class DocManager():
     """The DocManager class creates a connection to the backend engine and
@@ -63,16 +62,16 @@ class DocManager():
     def upsert(self, doc):
         """Update or insert a document into Mongo
         """
-        db, coll = doc['ns'].split('.', 1)
+        db, coll = doc[DOC_NS].split('.', 1)
         self.mongo[db][coll].save(doc)
 
     def remove(self, doc):
         """Removes document from Mongo
 
         The input is a python dictionary that represents a mongo document.
-        The documents has ns and _ts fields.
+        The documents has ns and ts fields.
         """
-        db, coll = doc['ns'].split('.', 1)
+        db, coll = doc[DOC_NS].split('.', 1)
         self.mongo[db][coll].remove({self.unique_key: doc[self.unique_key]})
 
     def search(self, start_ts, end_ts):
@@ -94,7 +93,7 @@ class DocManager():
         for namespace in search_set:
             db, coll = namespace.split('.', 1)
             target_coll = self.mongo[db][coll]
-            res.extend(list(target_coll.find({'_ts': {'$lte': end_ts,
+            res.extend(list(target_coll.find({DOC_TS: {'$lte': end_ts,
                                                       '$gte': start_ts}})))
 
         return res
@@ -121,13 +120,13 @@ class DocManager():
         for namespace in search_set:
             db, coll = namespace.split('.', 1)
             target_coll = self.mongo[db][coll]
-            res.extend(list(target_coll.find().sort('_ts', -1)))
+            res.extend(list(target_coll.find().sort(DOC_TS, -1)))
 
         max_ts = 0
         max_doc = None
         for it in res:
-            if it['_ts'] > max_ts:
-                max_ts = it['_ts']
+            if it[DOC_TS] > max_ts:
+                max_ts = it[DOC_TS]
                 max_doc = it
 
         return max_doc

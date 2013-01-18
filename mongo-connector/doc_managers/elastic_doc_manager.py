@@ -35,6 +35,8 @@ import simplejson as json
 from util import bson_ts_to_long
 
 
+from oplog_manager import DOC_TS, DOC_NS
+
 class DocManager():
     """The DocManager class creates a connection to the backend engine and
         adds/removes documents, and in the case of rollback, searches for them.
@@ -71,7 +73,7 @@ class DocManager():
         that field. (e.g. doc_type = doc['_type'])
         """
         doc_type = self.doc_type
-        index = doc['ns']
+        index = doc[DOC_NS]
         doc[self.unique_key] = str(doc[self.unique_key])
         doc_id = doc[self.unique_key]
         self.elastic.index(doc, index, doc_type, doc_id)
@@ -82,7 +84,7 @@ class DocManager():
         The input is a python dictionary that represents a mongo document.
         """
         try:
-            self.elastic.delete(doc['ns'], 'string', str(doc[self.unique_key]))
+            self.elastic.delete(doc[DOC_NS], 'string', str(doc[self.unique_key]))
         except:
             pass
 
@@ -97,7 +99,7 @@ class DocManager():
     def search(self, start_ts, end_ts):
         """Called to query Elastic for documents in a time range.
         """
-        res = ESRange('_ts', from_value=start_ts, to_value=end_ts)
+        res = ESRange(DOC_TS, from_value=start_ts, to_value=end_ts)
         q = RangeQuery(res)
         results = self.elastic.search(q)
         return results

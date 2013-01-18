@@ -21,6 +21,8 @@ if mongo_folder not in sys.path:
 from elastic_doc_manager import DocManager
 from pyes import ES, ESRange, RangeQuery, MatchAllQuery
 
+from oplog_manager import DOC_TS, DOC_NS
+
 ElasticDoc = DocManager("http://localhost:9200", auto_commit=False)
 elastic = ES(server="http://localhost:9200")
 
@@ -57,14 +59,14 @@ class ElasticDocManagerTester(unittest.TestCase):
         """Ensure we can properly insert into ElasticSearch via DocManager.
         """
 
-        docc = {'_id': '1', 'name': 'John', 'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'John', DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
         ElasticDoc.commit()
         res = elastic.search(MatchAllQuery())
         for doc in res:
             self.assertTrue(doc['_id'] == '1' and doc['name'] == 'John')
 
-        docc = {'_id': '1', 'name': 'Paul', 'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'Paul', DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
         ElasticDoc.commit()
         res = elastic.search(MatchAllQuery())
@@ -76,7 +78,7 @@ class ElasticDocManagerTester(unittest.TestCase):
         """Ensure we can properly delete from ElasticSearch via DocManager.
         """
 
-        docc = {'_id': '1', 'name': 'John', 'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'John', DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
         ElasticDoc.commit()
         res = elastic.search(MatchAllQuery())
@@ -93,9 +95,9 @@ class ElasticDocManagerTester(unittest.TestCase):
             _search(), compare.
         """
 
-        docc = {'_id': '1', 'name': 'John', 'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'John', DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
-        docc = {'_id': '2', 'name': 'Paul', 'ns': 'test.test'}
+        docc = {'_id': '2', 'name': 'Paul', DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
         ElasticDoc.commit()
         search = ElasticDoc._search()
@@ -112,14 +114,14 @@ class ElasticDocManagerTester(unittest.TestCase):
         We use API and DocManager's search(start_ts,end_ts), and then compare.
         """
 
-        docc = {'_id': '1', 'name': 'John', '_ts': 5767301236327972865,
-                'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'John', DOC_TS: 5767301236327972865,
+                DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
-        docc2 = {'_id': '2', 'name': 'John Paul', '_ts': 5767301236327972866,
-                 'ns': 'test.test'}
+        docc2 = {'_id': '2', 'name': 'John Paul', DOC_TS: 5767301236327972866,
+                 DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc2)
-        docc3 = {'_id': '3', 'name': 'Paul', '_ts': 5767301236327972870,
-                 'ns': 'test.test'}
+        docc3 = {'_id': '3', 'name': 'Paul', DOC_TS: 5767301236327972870,
+                 DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc3)
         ElasticDoc.commit()
         search = ElasticDoc.search(5767301236327972865, 5767301236327972866)
@@ -132,7 +134,7 @@ class ElasticDocManagerTester(unittest.TestCase):
         """Test that documents get properly added to ElasticSearch.
         """
 
-        docc = {'_id': '3', 'name': 'Waldo', 'ns': 'test.test'}
+        docc = {'_id': '3', 'name': 'Waldo', DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
         res = ElasticDoc._search()
         assert(len(res) == 0)
@@ -147,16 +149,16 @@ class ElasticDocManagerTester(unittest.TestCase):
         """Insert documents, verify that get_last_doc() returns the one with
             the latest timestamp.
         """
-        docc = {'_id': '4', 'name': 'Hare', '_ts': 3, 'ns': 'test.test'}
+        docc = {'_id': '4', 'name': 'Hare', DOC_TS: 3, DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
-        docc = {'_id': '5', 'name': 'Tortoise', '_ts': 2, 'ns': 'test.test'}
+        docc = {'_id': '5', 'name': 'Tortoise', DOC_TS: 2, DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
-        docc = {'_id': '6', 'name': 'Mr T.', '_ts': 1, 'ns': 'test.test'}
+        docc = {'_id': '6', 'name': 'Mr T.', DOC_TS: 1, DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
         elastic.refresh()
         doc = ElasticDoc.get_last_doc()
         self.assertTrue(doc['_id'] == '4')
-        docc = {'_id': '6', 'name': 'HareTwin', '_ts': 4, 'ns': 'test.test'}
+        docc = {'_id': '6', 'name': 'HareTwin', DOC_TS: 4, DOC_NS: 'test.test'}
         ElasticDoc.upsert(docc)
         elastic.refresh()
         doc = ElasticDoc.get_last_doc()

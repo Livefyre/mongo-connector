@@ -30,9 +30,7 @@ cmd_folder = cmd_folder.rsplit("/", 1)[0]
 if cmd_folder not in sys.path:
     sys.path.insert(0, cmd_folder)
 
-import subprocess
 import time
-import json
 import unittest
 import re
 
@@ -41,15 +39,17 @@ from locking_dict import LockingDict
 from setup_cluster import killMongoProc, startMongoProc, start_cluster
 from optparse import OptionParser
 from pymongo import Connection
-from pymongo.errors import ConnectionFailure, OperationFailure
+from pymongo.errors import OperationFailure
 from os import path
-from threading import Timer
 from oplog_manager import OplogThread
-from pysolr import Solr
 from util import (long_to_bson_ts,
                   bson_ts_to_long,
                   retry_until_ok)
+
 from bson.objectid import ObjectId
+
+from oplog_manager import DOC_TS, DOC_NS
+import logging
 
 """ Global path variables
 """
@@ -250,9 +250,9 @@ class TestOplogManagerSharded(unittest.TestCase):
         solr_results = solr._search()
         assert (len(solr_results) == 1)
         solr_doc = solr_results[0]
-        assert (long_to_bson_ts(solr_doc['_ts']) == search_ts)
+        assert (long_to_bson_ts(solr_doc[DOC_TS]) == search_ts)
         assert (solr_doc['name'] == 'paulie')
-        assert (solr_doc['ns'] == 'alpha.foo')
+        assert (solr_doc[DOC_NS] == 'alpha.foo')
 
         print("PASSED TEST DUMP COLLECTION")
 
@@ -313,8 +313,8 @@ class TestOplogManagerSharded(unittest.TestCase):
         cutoff_ts = test_oplog.get_last_oplog_timestamp()
 
         obj2 = ObjectId('4ff74db3f646462b38000002')
-        first_doc = {'name': 'paulie', '_ts': bson_ts_to_long(cutoff_ts),
-                     'ns': 'alpha.foo', '_id': obj1}
+        first_doc = {'name': 'paulie', DOC_TS: bson_ts_to_long(cutoff_ts),
+                     DOC_NS: 'alpha.foo', '_id': obj1}
 
         # try kill one, try restarting
         killMongoProc(primary_conn.host, PORTS_ONE['PRIMARY'])
@@ -363,8 +363,8 @@ class TestOplogManagerSharded(unittest.TestCase):
         self.assertEqual(str(primary_conn.port), PORTS_ONE['PRIMARY'])
 
         last_ts = test_oplog.get_last_oplog_timestamp()
-        second_doc = {'name': 'paul', '_ts': bson_ts_to_long(last_ts),
-                      'ns': 'alpha.foo', '_id': obj2}
+        second_doc = {'name': 'paul', DOC_TS: bson_ts_to_long(last_ts),
+                      DOC_NS: 'alpha.foo', '_id': obj2}
 
         test_oplog.doc_manager.upsert(first_doc)
         test_oplog.doc_manager.upsert(second_doc)
@@ -376,7 +376,7 @@ class TestOplogManagerSharded(unittest.TestCase):
 
         results_doc = results[0]
         self.assertEqual(results_doc['name'], 'paulie')
-        self.assertTrue(results_doc['_ts'] <= bson_ts_to_long(cutoff_ts))
+        self.assertTrue(results_doc[DOC_TS] <= bson_ts_to_long(cutoff_ts))
 
         print("PASSED TEST ROLLBACK")
 

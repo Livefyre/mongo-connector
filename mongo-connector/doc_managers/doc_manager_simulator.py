@@ -25,6 +25,9 @@ implementation with real systems.
 """
 
 
+from oplog_manager import DOC_TS, DOC_NS
+
+
 class DocManager():
     """BackendSimulator emulates both a target DocManager and a server.
 
@@ -73,7 +76,7 @@ class DocManager():
         """
         ret_list = []
         for stored_doc in self.doc_dict.values():
-            ts = stored_doc['_ts']
+            ts = stored_doc[DOC_TS]
             if ts <= end_ts or ts >= start_ts:
                 ret_list.append(stored_doc)
 
@@ -93,7 +96,7 @@ class DocManager():
         last_ts = None
 
         for stored_doc in self.doc_dict.values():
-            ts = stored_doc['_ts']
+            ts = stored_doc[DOC_TS]
             if last_ts is None or ts >= last_ts:
                 last_doc = stored_doc
                 last_ts = ts

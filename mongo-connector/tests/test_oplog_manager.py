@@ -27,9 +27,7 @@ cmd_folder = cmd_folder.rsplit("/", 1)[0]
 if cmd_folder not in sys.path:
     sys.path.insert(0, cmd_folder)
 
-import subprocess
 import time
-import json
 import re
 import unittest
 
@@ -37,15 +35,15 @@ from doc_managers.doc_manager_simulator import DocManager
 from locking_dict import LockingDict
 from setup_cluster import killMongoProc, startMongoProc, start_cluster
 from pymongo import Connection
-from pymongo.errors import ConnectionFailure
-from os import path
 from optparse import OptionParser
 from oplog_manager import OplogThread
-from pysolr import Solr
 from util import(long_to_bson_ts,
                  bson_ts_to_long,
                  retry_until_ok)
 from bson.objectid import ObjectId
+
+from oplog_manager import DOC_TS, DOC_NS
+import logging
 
 """ Global path variables
 """
@@ -232,9 +230,9 @@ class TestOplogManager(unittest.TestCase):
         solr_results = solr._search()
         self.assertEqual(len(solr_results), 1)
         solr_doc = solr_results[0]
-        self.assertEqual(long_to_bson_ts(solr_doc['_ts']), search_ts)
+        self.assertEqual(long_to_bson_ts(solr_doc[DOC_TS]), search_ts)
         self.assertEqual(solr_doc['name'], 'paulie')
-        self.assertEqual(solr_doc['ns'], 'test.test')
+        self.assertEqual(solr_doc[DOC_NS], 'test.test')
 
         #test_oplog.join()
         print("PASSED TEST DUMP COLLECTION")
@@ -293,8 +291,8 @@ class TestOplogManager(unittest.TestCase):
         cutoff_ts = test_oplog.get_last_oplog_timestamp()
 
         obj2 = ObjectId('4ff74db3f646462b38000002')
-        first_doc = {'name': 'paulie', '_ts': bson_ts_to_long(cutoff_ts),
-                     'ns': 'test.test',
+        first_doc = {'name': 'paulie', DOC_TS: bson_ts_to_long(cutoff_ts),
+                     DOC_NS: 'test.test',
                      '_id':  obj1}
 
         #try kill one, try restarting
@@ -346,8 +344,8 @@ class TestOplogManager(unittest.TestCase):
         self.assertEqual(str(primary_conn.port), PORTS_ONE['PRIMARY'])
 
         last_ts = test_oplog.get_last_oplog_timestamp()
-        second_doc = {'name': 'paul', '_ts': bson_ts_to_long(last_ts),
-                      'ns': 'test.test', '_id':  obj2}
+        second_doc = {'name': 'paul', DOC_TS: bson_ts_to_long(last_ts),
+                      DOC_NS: 'test.test', '_id':  obj2}
 
         test_oplog.doc_manager.upsert(first_doc)
         test_oplog.doc_manager.upsert(second_doc)
@@ -360,7 +358,7 @@ class TestOplogManager(unittest.TestCase):
 
         results_doc = results[0]
         self.assertEqual(results_doc['name'], 'paulie')
-        self.assertTrue(results_doc['_ts'] <= bson_ts_to_long(cutoff_ts))
+        self.assertTrue(results_doc[DOC_TS] <= bson_ts_to_long(cutoff_ts))
 
         #test_oplog.join()
         print("PASSED TEST ROLLBACK")

@@ -19,6 +19,8 @@ mongo_folder = cmd_folder.rsplit("/", 2)[0]
 if mongo_folder not in sys.path:
     sys.path.insert(0, mongo_folder)
 
+from oplog_manager import DOC_TS, DOC_NS
+
 from mongo_doc_manager import DocManager
 from pymongo import Connection
 
@@ -42,7 +44,7 @@ class MongoDocManagerTester(unittest.TestCase):
         """Ensure we can properly insert into Mongo via DocManager.
         """
 
-        docc = {'_id': '1', 'name': 'John', 'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'John', DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
         time.sleep(3)
         res = mongo.find()
@@ -50,7 +52,7 @@ class MongoDocManagerTester(unittest.TestCase):
         for doc in res:
             self.assertTrue(doc['_id'] == '1' and doc['name'] == 'John')
 
-        docc = {'_id': '1', 'name': 'Paul', 'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'Paul', DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
         time.sleep(1)
         res = mongo.find()
@@ -63,7 +65,7 @@ class MongoDocManagerTester(unittest.TestCase):
         """Ensure we can properly delete from Mongo via DocManager.
         """
 
-        docc = {'_id': '1', 'name': 'John', 'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'John', DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
         time.sleep(3)
         res = mongo.find()
@@ -80,9 +82,9 @@ class MongoDocManagerTester(unittest.TestCase):
         _search(), compare.
         """
 
-        docc = {'_id': '1', 'name': 'John', 'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'John', DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
-        docc = {'_id': '2', 'name': 'Paul', 'ns': 'test.test'}
+        docc = {'_id': '2', 'name': 'Paul', DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
         MongoDoc.commit()
         search = MongoDoc._search()
@@ -99,14 +101,14 @@ class MongoDocManagerTester(unittest.TestCase):
         We use API and DocManager's search(start_ts,end_ts), and then compare.
         """
 
-        docc = {'_id': '1', 'name': 'John', '_ts': 5767301236327972865,
-                'ns': 'test.test'}
+        docc = {'_id': '1', 'name': 'John', DOC_TS: 5767301236327972865,
+                DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
-        docc2 = {'_id': '2', 'name': 'John Paul', '_ts': 5767301236327972866,
-                 'ns': 'test.test'}
+        docc2 = {'_id': '2', 'name': 'John Paul', DOC_TS: 5767301236327972866,
+                 DOC_NS: 'test.test'}
         MongoDoc.upsert(docc2)
-        docc3 = {'_id': '3', 'name': 'Paul', '_ts': 5767301236327972870,
-                 'ns': 'test.test'}
+        docc3 = {'_id': '3', 'name': 'Paul', DOC_TS: 5767301236327972870,
+                 DOC_NS: 'test.test'}
         MongoDoc.upsert(docc3)
         search = MongoDoc.search(5767301236327972865, 5767301236327972866)
         self.assertTrue(len(search) == 2)
@@ -118,16 +120,16 @@ class MongoDocManagerTester(unittest.TestCase):
         """Insert documents, verify that get_last_doc() returns the one with
             the latest timestamp.
         """
-        docc = {'_id': '4', 'name': 'Hare', '_ts': 3, 'ns': 'test.test'}
+        docc = {'_id': '4', 'name': 'Hare', DOC_TS: 3, DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
-        docc = {'_id': '5', 'name': 'Tortoise', '_ts': 2, 'ns': 'test.test'}
+        docc = {'_id': '5', 'name': 'Tortoise', DOC_TS: 2, DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
-        docc = {'_id': '6', 'name': 'Mr T.', '_ts': 1, 'ns': 'test.test'}
+        docc = {'_id': '6', 'name': 'Mr T.', DOC_TS: 1, DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
         time.sleep(1)
         doc = MongoDoc.get_last_doc()
         self.assertTrue(doc['_id'] == '4')
-        docc = {'_id': '6', 'name': 'HareTwin', '_ts': 4, 'ns': 'test.test'}
+        docc = {'_id': '6', 'name': 'HareTwin', DOC_TS: 4, DOC_NS: 'test.test'}
         MongoDoc.upsert(docc)
         time.sleep(3)
         doc = MongoDoc.get_last_doc()

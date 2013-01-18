@@ -39,6 +39,7 @@ from pysolr import Solr
 SolrDoc = DocManager("http://localhost:8080/solr/")
 solr = Solr("http://localhost:8080/solr/")
 
+from oplog_manager import DOC_TS
 
 class SolrDocManagerTester(unittest.TestCase):
     """Test class for SolrDocManager
@@ -61,6 +62,7 @@ class SolrDocManagerTester(unittest.TestCase):
         try:
             s = DocManager("http://doesntexist.cskjdfhskdjfhdsom")
         except SystemError:
+            del s
             count += 1
         self.assertTrue(count == 1)
         print("PASSED INVALID URL")
@@ -123,11 +125,11 @@ class SolrDocManagerTester(unittest.TestCase):
         We use API and DocManager's search(start_ts,end_ts), and then compare.
         """
         #test search
-        docc = {'_id': '1', 'name': 'John', '_ts': 5767301236327972865}
+        docc = {'_id': '1', 'name': 'John', DOC_TS: 5767301236327972865}
         SolrDoc.upsert(docc)
-        docc = {'_id': '2', 'name': 'John Paul', '_ts': 5767301236327972866}
+        docc = {'_id': '2', 'name': 'John Paul', DOC_TS: 5767301236327972866}
         SolrDoc.upsert(docc)
-        docc = {'_id': '3', 'name': 'Paul', '_ts': 5767301236327972870}
+        docc = {'_id': '3', 'name': 'Paul', DOC_TS: 5767301236327972870}
         SolrDoc.upsert(docc)
         solr.commit()
         search = SolrDoc.search(5767301236327972865, 5767301236327972866)
@@ -156,15 +158,15 @@ class SolrDocManagerTester(unittest.TestCase):
         """Insert documents, Verify the doc with the latest timestamp.
         """
         #test get last doc
-        docc = {'_id': '4', 'name': 'Hare', '_ts': '2'}
+        docc = {'_id': '4', 'name': 'Hare', DOC_TS: '2'}
         SolrDoc.upsert(docc)
-        docc = {'_id': '5', 'name': 'Tortoise', '_ts': '1'}
+        docc = {'_id': '5', 'name': 'Tortoise', DOC_TS: '1'}
         SolrDoc.upsert(docc)
         solr.commit()
         doc = SolrDoc.get_last_doc()
         self.assertTrue(doc['_id'] == '4')
 
-        docc = {'_id': '6', 'name': 'HareTwin', 'ts': '2'}
+        docc = {'_id': '6', 'name': 'HareTwin', DOC_TS: '2'}
         solr.commit()
         doc = SolrDoc.get_last_doc()
         self.assertTrue(doc['_id'] == '4' or doc['_id'] == '6')
