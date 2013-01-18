@@ -146,7 +146,7 @@ class Connector(threading.Thread):
                             shutil.copyfile(backup, dest)
                         break
 
-        os.remove(self.oplog_checkpoint + '.backup')
+        os.remove(backup_file)
 
     def read_oplog_progress(self):
         """Reads oplog progress from file provided by user.
@@ -189,7 +189,7 @@ class Connector(threading.Thread):
         """
         main_conn = pymongo.Connection(self.address)
         if self.auth_key is not None:
-            main_conn['admin'].authenticate(self.auth_username, self.auth_key) 
+            main_conn['admin'].authenticate(self.auth_username, self.auth_key)
         self.read_oplog_progress()
         conn_type = None
 

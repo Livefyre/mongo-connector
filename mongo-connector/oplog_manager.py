@@ -139,13 +139,8 @@ class OplogThread(threading.Thread):
                     elif operation == 'i' or operation == 'u':
                         doc = self.retrieve_doc(entry)
                         if doc is not None:
-<<<<<<< Updated upstream
-                            doc['_ts'] = util.bson_ts_to_long(entry['ts'])
-                            doc['ns'] = ns
-=======
                             doc[DOC_TS] = util.bson_ts_to_long(entry['ts'])
                             doc[DOC_NS] = ns
->>>>>>> Stashed changes
                             self.doc_manager.upsert(doc)
 
                     last_ts = entry['ts']
@@ -155,7 +150,7 @@ class OplogThread(threading.Thread):
                 pass
 
             if err is True and self.auth_key is not None:
-                primary_conn['admin'].authenticate(self.auth_username, self.auth_key)
+                self.primary_connection['admin'].authenticate(self.auth_username, self.auth_key)
                 self.main_connection['admin'].authenticate(self.auth_username, self.auth_key)
                 err = False
 
