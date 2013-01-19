@@ -173,7 +173,7 @@ class OplogThread(threading.Thread):
         if not entry:
             return None
 
-        namespace = entry[DOC_NS]
+        namespace = entry['ns']
 
         # Update operations don't have an 'o' field specifying the document
         #- instead it specifies
