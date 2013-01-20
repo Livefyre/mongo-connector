@@ -131,7 +131,7 @@ class OplogThread(threading.Thread):
                         continue
                      
                     #if namespace_set is empty, we still must ignore system 
-                    db_name, coll_name = namespace.split('.', 1)
+                    db_name, coll_name = ns.split('.', 1)
                     if coll_name.startswith('system'):
                         continue
 
