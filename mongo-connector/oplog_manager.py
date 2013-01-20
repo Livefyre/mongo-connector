@@ -129,6 +129,11 @@ class OplogThread(threading.Thread):
                     #also ensure non-empty namespace set.
                     if ns not in self.namespace_set and self.namespace_set:
                         continue
+                     
+                    #if namespace_set is empty, we still must ignore system 
+                    db_name, coll_name = namespace.split('.', 1)
+                    if coll_name.startswith('system'):
+                        continue
 
                     #delete
                     if operation == 'd':
