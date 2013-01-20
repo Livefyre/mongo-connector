@@ -1,0 +1,1 @@
+["Collection(Database(Connection([u'usea1l3mg350:27017', u'usea1l3mg360:27017', u'usea1l3mg380:27017']), u'local'), u'oplog.rs')", 5835308384147996850]

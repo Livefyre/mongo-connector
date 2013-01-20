@@ -62,7 +62,7 @@ class DocManager():
     def upsert(self, doc):
         """Update or insert a document into Mongo
         """
-        db, coll = doc.get(DOC_NS, doc['ns']).split('.', 1)
+        db, coll = doc.get(DOC_NS, doc.get('ns', None)).split('.', 1)
         self.mongo[db][coll].save(doc)
 
     def remove(self, doc):
@@ -71,7 +71,7 @@ class DocManager():
         The input is a python dictionary that represents a mongo document.
         The doc may come from the source oplog or from the target collection.
         """
-        db, coll = doc.get(DOC_NS, doc['ns']).split('.', 1)
+        db, coll = doc.get(DOC_NS, doc.get('ns', None)).split('.', 1)
         self.mongo[db][coll].remove({self.unique_key: doc[self.unique_key]})
 
     def search(self, start_ts, end_ts):
