@@ -544,8 +544,6 @@ class OplogThread(threading.Thread):
                 self.checkpoint = self.get_last_oplog_timestamp()
                 return cursor, retry_until_ok(cursor.count)
 
-        self.checkpoint = timestamp
-
         for i in range(60):
             cursor = self.get_oplog_cursor(timestamp)
             cursor_len = retry_until_ok(cursor.count)
