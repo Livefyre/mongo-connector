@@ -204,7 +204,7 @@ class Connector(threading.Thread):
             if value and value < min_value:
                 min_value = value
 
-        return util.long_to_bson_ts(min_value)
+        return util.long_to_bson_ts(min_value) if min_value is not None else None
 
     def run(self):
         """Discovers the mongo cluster and creates a thread for each primary.
