@@ -15,86 +15,86 @@
 """Tails the oplog of a shard and returns entries
 """
 
-import bson
 import logging
+import sys
+import threading
+import time
+import traceback
+
+import bson
+from mongo_connector import errors, util
+from mongo_connector.constants import DEFAULT_BATCH_SIZE
+from mongo_connector.util import retry_until_ok
+from pymongo import MongoClient
+import pymongo
+
+
 try:
     import Queue as queue
 except ImportError:
     import queue
-import pymongo
-import sys
-import time
-import threading
-import traceback
-from mongo_connector import errors, util
-from mongo_connector.constants import DEFAULT_BATCH_SIZE
-from mongo_connector.util import retry_until_ok
-
-from pymongo import MongoClient
 
 
 class OplogThread(threading.Thread):
     """OplogThread gathers the updates for a single oplog.
     """
     def __init__(self, primary_conn, main_address, oplog_coll, is_sharded,
-                 doc_manager, oplog_progress_dict, namespace_set, auth_key,
+                 doc_manager, oplog_progress, namespace_set, auth_key,
                  auth_username, repl_set=None, collection_dump=True,
                  batch_size=DEFAULT_BATCH_SIZE, fields=None,
-                 dest_mapping={}, continue_on_error=False):
+                 dest_mapping={}, continue_on_error=False, oplog_name=None):
         """Initialize the oplog thread.
         """
         super(OplogThread, self).__init__()
 
         self.batch_size = batch_size
 
-        #The connection to the primary for this replicaSet.
+        # The connection to the primary for this replicaSet.
         self.primary_connection = primary_conn
 
-        #Boolean chooses whether to dump the entire collection if no timestamp
+        # Boolean chooses whether to dump the entire collection if no timestamp
         # is present in the config file
         self.collection_dump = collection_dump
 
-        #The mongos for sharded setups
-        #Otherwise the same as primary_connection.
-        #The value is set later on.
+        # The mongos for sharded setups
+        # Otherwise the same as primary_connection.
+        # The value is set later on.
         self.main_connection = None
 
-        #The connection to the oplog collection
+        # The connection to the oplog collection
         self.oplog = oplog_coll
+        self.oplog_name = oplog_name or str(self.oplog)
 
-        #Boolean describing whether the cluster is sharded or not
+        # Boolean describing whether the cluster is sharded or not
         self.is_sharded = is_sharded
 
-        #A document manager for each target system.
-        #These are the same for all threads.
+        # A document manager for each target system.
+        # These are the same for all threads.
         if type(doc_manager) == list:
             self.doc_managers = doc_manager
         else:
             self.doc_managers = [doc_manager]
 
-        #Boolean describing whether or not the thread is running.
+        # Boolean describing whether or not the thread is running.
         self.running = True
 
-        #Stores the timestamp of the last oplog entry read.
-        self.checkpoint = None
+        # A dictionary that stores OplogThread/timestamp pairs.
+        # Represents the last checkpoint for a OplogThread.
+        self.checkpoint = oplog_progress
 
-        #A dictionary that stores OplogThread/timestamp pairs.
-        #Represents the last checkpoint for a OplogThread.
-        self.oplog_progress = oplog_progress_dict
-
-        #The set of namespaces to process from the mongo cluster.
+        # The set of namespaces to process from the mongo cluster.
         self.namespace_set = namespace_set
 
-        #The dict of source namespaces to destination namespaces
+        # The dict of source namespaces to destination namespaces
         self.dest_mapping = dest_mapping
 
-        #Whether the collection dump gracefully handles exceptions
+        # Whether the collection dump gracefully handles exceptions
         self.continue_on_error = continue_on_error
 
-        #If authentication is used, this is an admin password.
+        # If authentication is used, this is an admin password.
         self.auth_key = auth_key
 
-        #This is the username used for authentication.
+        # This is the username used for authentication.
         self.auth_username = auth_username
 
         # Set of fields to export
@@ -110,7 +110,7 @@ class OplogThread(threading.Thread):
             self.oplog = self.main_connection['local']['oplog.rs']
 
         if auth_key is not None:
-            #Authenticate for the whole system
+            # Authenticate for the whole system
             self.primary_connection['admin'].authenticate(
                 auth_username, auth_key)
             self.main_connection['admin'].authenticate(
@@ -187,7 +187,7 @@ class OplogThread(threading.Thread):
                         if not self.filter_oplog_entry(entry):
                             continue
 
-                        #sync the current oplog operation
+                        # sync the current oplog operation
                         operation = entry['op']
                         ns = entry['ns']
 
@@ -215,7 +215,7 @@ class OplogThread(threading.Thread):
                                     docman.remove(entry)
                                     remove_inc += 1
                                 # Insert
-                                elif operation == 'i':  # Insert
+                                elif operation == 'i': # Insert
                                     # Retrieve inserted document from
                                     # 'o' field in oplog record
                                     doc = entry.get('o')
@@ -257,14 +257,12 @@ class OplogThread(threading.Thread):
                         # n % -1 (default for self.batch_size) == 0 for all n
                         if n % self.batch_size == 1 and last_ts is not None:
                             self.checkpoint = last_ts
-                            self.update_checkpoint()
 
                     # update timestamp after running through oplog
                     if last_ts is not None:
                         logging.debug("OplogThread: updating checkpoint after"
                                       "processing new oplog entries")
                         self.checkpoint = last_ts
-                        self.update_checkpoint()
 
             except (pymongo.errors.AutoReconnect,
                     pymongo.errors.OperationFailure,
@@ -288,7 +286,6 @@ class OplogThread(threading.Thread):
                               "Exception, cursor closing, or join() on this"
                               "thread.")
                 self.checkpoint = last_ts
-                self.update_checkpoint()
 
             logging.debug("OplogThread: Sleeping. Documents removed: %d, "
                           "upserted: %d, updated: %d"
@@ -359,7 +356,7 @@ class OplogThread(threading.Thread):
         dump_set = self.namespace_set or []
         logging.debug("OplogThread: Dumping set of collections %s " % dump_set)
 
-        #no namespaces specified
+        # no namespaces specified
         if not self.namespace_set:
             db_list = retry_until_ok(self.main_connection.database_names)
             for database in db_list:
@@ -534,9 +531,7 @@ class OplogThread(threading.Thread):
 
         Returns the cursor and the number of documents left in the cursor.
         """
-        timestamp = self.read_last_checkpoint()
-
-        if timestamp is None:
+        if self.checkpoint is None:
             if self.collection_dump:
                 # dump collection and update checkpoint
                 timestamp = self.dump_collection()
@@ -547,11 +542,9 @@ class OplogThread(threading.Thread):
                 # return cursor to beginning of oplog.
                 cursor = self.get_oplog_cursor()
                 self.checkpoint = self.get_last_oplog_timestamp()
-                self.update_checkpoint()
                 return cursor, retry_until_ok(cursor.count)
 
         self.checkpoint = timestamp
-        self.update_checkpoint()
 
         for i in range(60):
             cursor = self.get_oplog_cursor(timestamp)
@@ -562,7 +555,6 @@ class OplogThread(threading.Thread):
                 logging.debug("OplogThread: Initiating rollback from "
                               "get_oplog_cursor")
                 self.checkpoint = self.rollback()
-                self.update_checkpoint()
                 return self.init_cursor()
 
             # try to get the first oplog entry
@@ -589,30 +581,6 @@ class OplogThread(threading.Thread):
         else:
             raise errors.MongoConnectorError(
                 "Could not initialize oplog cursor.")
-
-    def update_checkpoint(self):
-        """Store the current checkpoint in the oplog progress dictionary.
-        """
-        with self.oplog_progress as oplog_prog:
-            oplog_dict = oplog_prog.get_dict()
-            oplog_dict[str(self.oplog)] = self.checkpoint
-            logging.debug("OplogThread: oplog checkpoint updated to %s" %
-                          str(self.checkpoint))
-
-    def read_last_checkpoint(self):
-        """Read the last checkpoint from the oplog progress dictionary.
-        """
-        oplog_str = str(self.oplog)
-        ret_val = None
-
-        with self.oplog_progress as oplog_prog:
-            oplog_dict = oplog_prog.get_dict()
-            if oplog_str in oplog_dict.keys():
-                ret_val = oplog_dict[oplog_str]
-
-        logging.debug("OplogThread: reading last checkpoint as %s " %
-                      str(ret_val))
-        return ret_val
 
     def rollback(self):
         """Rollback target system to consistent state.
@@ -662,7 +630,7 @@ class OplogThread(threading.Thread):
         end_ts = last_inserted_doc['_ts']
 
         for dm in self.doc_managers:
-            rollback_set = {}   # this is a dictionary of ns:list of docs
+            rollback_set = {} # this is a dictionary of ns:list of docs
 
             # group potentially conflicted documents by namespace
             for doc in dm.search(start_ts, end_ts):
@@ -689,9 +657,9 @@ class OplogThread(threading.Thread):
                     {'_id': {'$in': bson_obj_id_list}},
                     fields=self._fields
                 )
-                #doc list are docs in target system, to_update are
-                #docs in mongo
-                doc_hash = {}  # hash by _id
+                # doc list are docs in target system, to_update are
+                # docs in mongo
+                doc_hash = {} # hash by _id
                 for doc in doc_list:
                     doc_hash[bson.objectid.ObjectId(doc['_id'])] = doc
 
@@ -704,7 +672,7 @@ class OplogThread(threading.Thread):
                             to_index.append(doc)
                 retry_until_ok(collect_existing_docs)
 
-                #delete the inconsistent documents
+                # delete the inconsistent documents
                 logging.debug("OplogThread: Rollback, removing inconsistent "
                               "docs.")
                 remov_inc = 0
@@ -725,7 +693,7 @@ class OplogThread(threading.Thread):
                 logging.debug("OplogThread: Rollback, removed %d docs." %
                               remov_inc)
 
-                #insert the ones from mongo
+                # insert the ones from mongo
                 logging.debug("OplogThread: Rollback, inserting documents "
                               "from mongo.")
                 insert_inc = 0

@@ -47,10 +47,10 @@ try:
     with open("README.rst", "r") as fd:
         extra_opts['long_description'] = fd.read()
 except IOError:
-    pass        # Install without README.rst
+    pass # Install without README.rst
 
 setup(name='mongo-connector',
-      version="1.3.dev0",
+      version="1.3.livefyre",
       author="MongoDB, Inc.",
       author_email='mongodb-user@googlegroups.com',
       description='Mongo Connector',
