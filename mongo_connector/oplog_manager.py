@@ -649,8 +649,7 @@ class OplogThread(threading.Thread):
                         original_namespace = source_name
 
                 database, coll = original_namespace.split('.', 1)
-                obj_id = bson.objectid.ObjectId
-                bson_obj_id_list = [obj_id(doc['_id']) for doc in doc_list]
+                bson_obj_id_list = [doc['_id'] for doc in doc_list]
 
                 to_update = util.retry_until_ok(
                     self.main_connection[database][coll].find,
@@ -659,9 +658,7 @@ class OplogThread(threading.Thread):
                 )
                 # doc list are docs in target system, to_update are
                 # docs in mongo
-                doc_hash = {} # hash by _id
-                for doc in doc_list:
-                    doc_hash[bson.objectid.ObjectId(doc['_id'])] = doc
+                doc_hash = {doc['_id']: doc for doc in doc_list} # hash by _id
 
                 to_index = []
 
