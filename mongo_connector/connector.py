@@ -201,7 +201,7 @@ class Connector(threading.Thread):
 
         for dm in self.doc_managers:
             value = dm.get_last_doc(self.ns_set or None)
-            if value and value['_ts'] < min_value:
+            if value and (not min_value or value['_ts'] < min_value):
                 min_value = value['_ts']
 
         return util.long_to_bson_ts(min_value) if min_value is not None else None
