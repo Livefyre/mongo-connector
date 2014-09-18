@@ -531,6 +531,8 @@ class OplogThread(threading.Thread):
 
         Returns the cursor and the number of documents left in the cursor.
         """
+
+        timestamp = self.checkpoint
         if self.checkpoint is None:
             if self.collection_dump:
                 # dump collection and update checkpoint
